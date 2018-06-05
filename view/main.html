@@ -1,0 +1,225 @@
+<?php
+require_once 'template/header.html';
+extract($result);
+?>
+
+    <div class="center">
+        <h3>Добавьте изображение</h3>
+        <div class="phone"><i>Требования к изображению:</i><br>
+            - разрешение не больше 1920х1080рх;<br>
+            - размер не более 5Мb;<br>
+            - разрешенные форматы: GIF, JPG, JPEG, BMP, PNG.<br>
+        </div>
+        <p><br></p>
+        <div id="message"></div>
+        <form id="form" class="form" method="post" enctype="multipart/form-data" action="index.php?action=save">
+            <input id="file" class="field name-f" name="userfile" type="file"><br>
+            <input class="field sub" type="submit" value="Отправить">
+        </form>
+        <form id="handSize" method="post">
+            <label for="onPage">Select limit</label>
+            <select id="onPage" name="limit">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+            <br>
+            <label for="handSize">Sort by size</label>
+            <input id="dimension" type="text" name="dimension" value="0">
+            <select id="ratio" name="ratio">
+                <option value='>'>Больше</option>
+                <option value='<'>Меньше</option>
+            </select>
+            <select id="sortSize" name="sortSize">
+                <option value="width">width</option>
+                <option value="height">height</option>
+            </select>
+            <br>
+
+            <label for="sortWeight">Sort by weight</label>
+            <input id="weight" type="text" name="weight">
+            <select id="sign" name="sign">
+                <option value='>'>Больше</option>
+                <option value='<'>Меньше</option>
+            </select>
+            <br>
+
+            <label for="handCountViews">Sort by views</label>
+            <input id="countViews" type="text" name="countViews">
+        </form>
+
+        <div id="gallery">
+            <?php foreach ($arrImages as $image) { ?>
+                <a data-id="<?php echo $image['id']; ?>" data-views="<?php echo $image['views']; ?>" class="grouped_elements" rel="group1" href="<?= DIR_IMAGE . $image['name']; ?>"><img
+                            src="<?= DIR_IMAGE . $image['name']; ?>" width="100" height="70" alt=""/></a>
+            <?php } ?>
+        </div>
+
+        <nav aria-label="Page navigation example">
+            <ul id="pagination" class="pagination">
+                <?php for($i = 1; $i <= $totalPages; $i++){ ?>
+
+                    <li data-page="<?= $i; ?>" class="page-item <?php echo $i == 1? 'active': ''; ?>"><a class="page-link" href="#"><?= $i; ?></a></li>
+
+                <?php } ?>
+                <li data-page="2" class="page-item"><a class="page-link" href="#">Next</a></li>
+            </ul>
+        </nav>
+
+    </div>
+
+    <script>
+
+        $(document).ready(function () {
+
+            $("#form").on('submit', (function (e) {
+                    e.preventDefault();
+                    $("#message").empty();
+                    $.ajax({
+                        url: "<?php echo MAIN_URL; ?>" + "/" + $(this).attr("action"),
+                        type: "POST",
+                        data: new FormData(this),
+                        contentType: false,
+                        cache: false,
+                        processData: false,
+                        success: function (data) {
+                            console.log(data);
+                        },
+                        error: function (e) {
+                            console.log(e);
+                        }
+                    })
+                })
+            );
+
+            $(function () {
+                $("#file").change(function () {
+                    $("#message").empty();
+                    var file = this.files[0];
+                    var imagefile = file.type;
+                    var match = ["image/jpeg", "image/png", "image/jpg"];
+                    if (!((imagefile == match[0]) || (imagefile == match[1]) || (imagefile == match[2]))) {  /
+                        $("#message").html("<p id='error'>Please Select A valid Image File</p>" + "<h4>Note</h4>" + "<span id='error_message'>Only jpeg, jpg and png Images type allowed</span>");
+                        return false;
+                    }
+                    else {
+                        var reader = new FileReader();
+                        reader.readAsDataURL(this.files[0]);
+                    }
+                });
+
+
+                $('#gallery').on('click', 'a', function (){
+                    var image = $(this);
+                    var imageID = $(this).attr('data-id');
+                    var imageViews = $(this).attr('data-views');
+                    imageViews++;
+                    $.ajax({
+                        type: "POST",
+                        data: {'id': imageID, 'views': imageViews},
+                        dataType: 'json',
+                        url: '<?php echo MAIN_URL; ?>' +'/index.php?action=viewCounter',
+                        success: function (data) {
+                            $("#gallery").find("a[data-id='"+ image.attr('data-id') +"']").attr('data-views', imageViews);
+                        },
+                        error: function (e) {
+                            console.log(e)
+                        }
+
+                    });
+                });
+
+
+                $("#handSize select, #handSize input").on('change', function () {
+                    sendFilters();
+                });
+
+                $("#pagination").on('click', 'li', function (e) {
+                    sendFilters($(this).attr('data-page'));
+                });
+
+
+
+                function sendFilters ( page = 1) {
+                    var form = $("#handSize");
+                    var FData = new FormData();
+                    $.each(form[0], function (i, input) {
+                        FData.append($(input).attr('name'), $(input).val());
+                    });
+                    FData.append('page', page);
+                    $.ajax({
+                        type: "POST",
+                        data: FData,
+                        processData: false,
+                        contentType: false,
+                        dataType: 'json',
+                        success: function (data) {
+                            console.log(data);
+                            $("#gallery").empty();
+                            $.each(data.arrImages, function (i, val) {
+                                $("#gallery").append('<a class="grouped_elements" rel="group1" href="<?= DIR_IMAGE; ?>' + val.name + '"><img src="<?= DIR_IMAGE;?>' + val.name + '" width="100" height="70" alt=""/></a>')
+                            });
+                            $("a.grouped_elements").fancybox();
+                            var pagination = '';
+                            if(page > 1) {
+                                var prev = Number(page) - 1;
+                                pagination += '<li  data-page="' + prev + '" class="page-item"><a class="page-link" href="#">Previous</a></li>';
+                            }
+                            for(var i = 1; i <= data.totalPages; i++){
+                                var active = i == page?'active':'';
+                                pagination += '<li data-page="' + i + '" class="page-item ' + active + '"><a class="page-link" href="#">' + i + '</a></li>';
+                            }
+                            if(page < data.totalPages) {
+                                var next = Number(page) + 1;
+                                pagination += '<li  data-page="' + next + '" class="page-item"><a class="page-link" href="#">Next</a></li>';
+
+                            }
+                            $('#pagination').empty();
+                            $('#pagination').html(pagination);
+                        },
+                        error: function (e) {
+                            console.log(e);
+                        }
+                    })
+                }
+            });
+
+            $("a.grouped_elements").fancybox({
+                'transitionIn': 'elastic',
+                'transitionOut': 'elastic',
+                'speedIn': 600,
+                'speedOut': 200,
+                'overlayShow': false
+            });
+
+        })
+    </script>
+
+
+<?php
+require_once 'template/footer.html';
+?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
